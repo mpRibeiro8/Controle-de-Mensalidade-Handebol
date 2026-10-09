@@ -1,0 +1,415 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><title>Controle de Mensalidades</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: placar no topo (arrecadado do mês), lista de atletas com toggle Sim/Não, uma coluna, feito para o polegar. */
+:root {
+  --bg: #eceee8;
+  --surface: #f9faf6;
+  --ink: #17221d;
+  --muted: #5d6b64;
+  --line: #d3d8cf;
+  --accent: #0e6b4e;
+  --accent-ink: #ffffff;
+  --yes: #0e6b4e;
+  --yes-bg: #d7ecdf;
+  --no: #b4410f;
+  --no-bg: #f6ddd0;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101713; --surface: #18221c; --ink: #e8efe9; --muted: #93a398; --line: #2a372f;
+    --accent: #4fc79b; --accent-ink: #08140f; --yes: #5fd4a5; --yes-bg: #1c3a2d; --no: #f0905e; --no-bg: #3d2417;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101713; --surface: #18221c; --ink: #e8efe9; --muted: #93a398; --line: #2a372f;
+  --accent: #4fc79b; --accent-ink: #08140f; --yes: #5fd4a5; --yes-bg: #1c3a2d; --no: #f0905e; --no-bg: #3d2417;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.35; padding-inline: 16px; padding-block: 0 32px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app { max-width: 560px; margin-inline: auto; display: flex; flex-direction: column; gap: 14px; }
+
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 12px 8px; display: flex; flex-direction: column; gap: 10px; }
+.topbar { display: flex; align-items: center; gap: 10px; }
+.head { display: flex; flex-direction: column; gap: 10px; }
+.view { display: flex; flex-direction: column; gap: 14px; }
+.menu-btn { width: 44px; height: 44px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; }
+.menu-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.view-title { font-family: var(--font-display); font-weight: 600; font-size: 18px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); min-width: 0; }
+.scrim { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.45); opacity: 0; pointer-events: none; }
+.scrim.open { opacity: 1; pointer-events: auto; }
+.drawer { position: fixed; z-index: 21; top: 0; bottom: 0; left: 0; width: min(300px, 82vw); background: var(--surface); border-right: 1px solid var(--line); padding: calc(env(safe-area-inset-top, 0px) + 20px) 12px 20px; display: flex; flex-direction: column; gap: 6px; transform: translateX(-100%); visibility: hidden; }
+.drawer.open { transform: none; visibility: visible; }
+.drawer-title { font-family: var(--font-display); font-weight: 700; font-size: 26px; letter-spacing: .04em; text-transform: uppercase; padding: 0 12px 12px; }
+.nav-item { text-align: left; border: 0; background: transparent; border-radius: 8px; padding: 14px 12px; font-size: 17px; font-weight: 500; color: var(--ink); }
+.nav-item[aria-current="page"] { background: var(--accent); color: var(--accent-ink); }
+@media (prefers-reduced-motion: no-preference) {
+  .scrim { transition: opacity .2s ease; }
+  .drawer { transition: transform .22s ease, visibility .22s; }
+}
+.tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.tab { flex: none; border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 6px 16px; font-family: var(--font-display); font-weight: 600; font-size: 18px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.tab[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.month { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.month h1 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 30px; letter-spacing: .02em; text-transform: uppercase; text-align: center; flex: 1; min-width: 0; }
+.step { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); font-size: 22px; line-height: 1; }
+
+.board { background: var(--ink); color: var(--bg); border-radius: 6px; padding: 16px; display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; align-items: end; }
+.board .lbl { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+.board .big { font-family: var(--font-display); font-weight: 700; font-size: 64px; line-height: .95; font-variant-numeric: tabular-nums; }
+.board .big small { font-size: 26px; font-weight: 600; margin-right: 4px; opacity: .7; }
+.board .count { text-align: right; font-family: var(--font-display); font-weight: 600; font-size: 28px; font-variant-numeric: tabular-nums; line-height: 1; }
+.board .count span { font-size: 16px; opacity: .7; }
+.bar { grid-column: 1 / -1; height: 8px; background: rgba(255,255,255,.18); border-radius: 4px; overflow: hidden; margin-top: 10px; display: flex; }
+.bar i { display: block; height: 100%; }
+.bar .y { background: #5fd4a5; }
+.bar .n { background: #f0905e; }
+.legend { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; opacity: .85; font-variant-numeric: tabular-nums; }
+
+.filters { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.filters button { border: 0; background: transparent; padding: 10px 4px; font-size: 14px; font-weight: 500; color: var(--muted); border-right: 1px solid var(--line); }
+.filters button:last-child { border-right: 0; }
+.filters button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+
+.list { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 8px 10px 8px 12px; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.num { font-family: var(--font-display); font-weight: 600; font-size: 20px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.name { width: 100%; min-width: 0; border: 0; border-bottom: 1px dashed transparent; background: transparent; color: var(--ink); font: inherit; font-size: 17px; padding: 8px 0; border-radius: 0; }
+.name::placeholder { color: var(--muted); opacity: .8; }
+.name:focus { outline: none; border-bottom-color: var(--accent); }
+.toggle { display: flex; gap: 6px; }
+.tg { min-width: 52px; height: 44px; border-radius: 8px; border: 1px solid var(--line); background: transparent; font-weight: 600; font-size: 15px; color: var(--muted); }
+.tg.sim[aria-pressed="true"] { background: var(--yes-bg); border-color: var(--yes); color: var(--yes); }
+.tg.nao[aria-pressed="true"] { background: var(--no-bg); border-color: var(--no); color: var(--no); }
+.del { width: 40px; height: 44px; border: 0; background: transparent; color: var(--muted); border-radius: 8px; display: grid; place-items: center; font-size: 13px; font-weight: 600; }
+.del svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.del.ask { width: auto; padding: 0 10px; background: var(--no-bg); color: var(--no); }
+.empty { padding: 24px 16px; text-align: center; color: var(--muted); }
+.add { width: 100%; border: 1px dashed var(--line); background: transparent; border-radius: 8px; padding: 12px; color: var(--muted); font-weight: 500; }
+
+.tools { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.tools h2 { margin: 0; font-family: var(--font-display); font-size: 18px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+.field { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.field label { flex: 1 1 140px; color: var(--muted); font-size: 14px; }
+.field input { flex: 1 1 120px; min-width: 0; height: 44px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; background: var(--bg); color: var(--ink); font: inherit; font-variant-numeric: tabular-nums; }
+.btn { height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--ink); background: var(--ink); color: var(--bg); font-weight: 600; }
+.btn.danger { height: auto; min-height: 44px; padding: 10px 16px; background: transparent; color: var(--no); border-color: var(--no); text-align: left; }
+.btn.danger.ask { background: var(--no); color: var(--bg); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+.note { margin: 0; font-size: 13px; color: var(--muted); min-height: 1em; }
+@media (prefers-reduced-motion: no-preference) { .bar i { transition: width .25s ease; } }
+</style></head><body>
+
+<div class="app">
+  <header class="top">
+    <div class="topbar">
+      <button class="menu-btn" id="menuBtn" aria-label="Abrir menu" aria-controls="drawer" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <span class="view-title" id="viewTitle">Controle de Mensalidades</span>
+    </div>
+    <div class="head" id="controleHead">
+    <div class="tabs" id="tabs" role="tablist" aria-label="Grupos"></div>
+    <div class="month">
+      <button class="step" id="prev" aria-label="Mês anterior">‹</button>
+      <h1 id="monthLabel">Outubro 2026</h1>
+      <button class="step" id="next" aria-label="Próximo mês">›</button>
+    </div>
+    </div>
+  </header>
+
+  <div id="view-controle" class="view">
+
+  <section class="board" aria-live="polite">
+    <div>
+      <div class="lbl">Arrecadado no mês</div>
+      <div class="big"><small>R$</small><span id="total">0</span></div>
+    </div>
+    <div class="count"><span class="lbl">Pagos</span><br><b id="paidCount">0</b><span id="ofCount"> / 30</span></div>
+    <div class="bar" aria-hidden="true"><i class="y" id="barY"></i><i class="n" id="barN"></i></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <div class="filters" id="filters" role="group" aria-label="Filtro">
+    <button data-f="todos" aria-pressed="true">Todos</button>
+    <button data-f="pendentes" aria-pressed="false">Pendentes</button>
+    <button data-f="pagos" aria-pressed="false">Pagos</button>
+    <button data-f="nao" aria-pressed="false">Não</button>
+  </div>
+
+  <ul class="list" id="list"></ul>
+  <button class="add" id="addAthlete">+ Adicionar atleta</button>
+  </div>
+
+  <div id="view-ajustes" class="view" hidden>
+  <section class="tools">
+    <h2>Ajustes</h2>
+    <div class="field">
+      <label for="valor">Valor da mensalidade (R$)</label>
+      <input id="valor" type="number" inputmode="decimal" min="0" step="1">
+    </div>
+    <div class="field">
+      <label for="nomeGrupo">Nome do grupo atual</label>
+      <input id="nomeGrupo" type="text" maxlength="24" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="novoGrupo">Novo grupo (ex.: Feminino)</label>
+      <input id="novoGrupo" type="text" maxlength="24" autocomplete="off">
+      <button class="btn ghost" id="addGroup">Criar</button>
+    </div>
+    <div class="field">
+      <button class="btn danger" id="delGroup">Excluir grupo atual</button>
+    </div>
+    <p class="note" id="delGroupNote"></p>
+    <div class="field">
+      <button class="btn" id="copy">Copiar lista de pendentes</button>
+    </div>
+    <p class="note" id="note"></p>
+    <p class="note" id="storeNote"></p>
+  </section>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<nav class="drawer" id="drawer" aria-label="Menu principal" inert>
+  <div class="drawer-title">Mensalidades</div>
+  <button class="nav-item" data-view="controle" aria-current="page">Controle de Mensalidades</button>
+  <button class="nav-item" data-view="ajustes">Ajustes</button>
+</nav>
+
+<script>
+(function () {
+  var MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  var KEY = "mensalidades-v1";
+  var db = null, docRef = null;
+  var S = null;           // estado
+  var view = { gid: null, mes: null, filtro: "todos" };
+  var dirty = false, saveTimer = null, askDel = null, askTimer = null;
+
+  function uid() { return "a" + Math.random().toString(36).slice(2, 8); }
+  function mesAtual() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+  function defaultState() {
+    var at = []; for (var i = 1; i <= 3; i++) at.push({ id: "a" + i, nome: "" });
+    return { valor: 30, grupos: [{ id: "masculino", nome: "Masculino", atletas: at }], pag: {} };
+  }
+  function grupo() { return S.grupos.find(function (g) { return g.id === view.gid; }) || S.grupos[0]; }
+  function mesDelta(m, d) { var p = m.split("-"), dt = new Date(+p[0], +p[1] - 1 + d, 1); return dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0"); }
+  function ativos() { var g = grupo(); return g.atletas.filter(function (a) { return (!a.de || a.de <= view.mes) && (!a.ate || a.ate >= view.mes); }); }
+  function marks() {
+    var p = S.pag; var g = grupo();
+    return (p[g.id] && p[g.id][view.mes]) || {};
+  }
+  function nomeDe(a, i) { return a.nome && a.nome.trim() ? a.nome.trim() : "Atleta " + (i + 1); }
+  function fmt(n) { return Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 2 }); }
+  function $(id) { return document.getElementById(id); }
+
+  /* ---------- persistência ---------- */
+  function readLocal() { try { var r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+  function writeLocal() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+  function scheduleSave() {
+    dirty = true; clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      writeLocal();
+      if (docRef) {
+        docRef.set(JSON.parse(JSON.stringify(S))).then(function () { dirty = false; setNote("Salvo"); })
+          .catch(function () { setNote("Não foi possível salvar na nuvem. Os dados ficaram neste aparelho."); });
+      } else { dirty = false; }
+    }, 500);
+  }
+  function setNote(t) { $("note").textContent = t; if (t === "Salvo") setTimeout(function () { if ($("note").textContent === "Salvo") $("note").textContent = ""; }, 1500); }
+
+  function normalize(d) {
+    if (!d || !d.grupos || !d.grupos.length) return defaultState();
+    d.pag = d.pag || {}; d.valor = typeof d.valor === "number" ? d.valor : 30;
+    return d;
+  }
+
+  /* ---------- render ---------- */
+  function renderTabs() {
+    var t = $("tabs"); t.textContent = "";
+    S.grupos.forEach(function (g) {
+      var b = document.createElement("button");
+      b.className = "tab"; b.setAttribute("role", "tab"); b.textContent = g.nome;
+      b.setAttribute("aria-selected", g.id === view.gid ? "true" : "false");
+      b.addEventListener("click", function () { view.gid = g.id; renderAll(); });
+      t.appendChild(b);
+    });
+  }
+  function renderMonth() {
+    var p = view.mes.split("-"); $("monthLabel").textContent = MESES[+p[1] - 1] + " " + p[0];
+  }
+  function renderBoard() {
+    var g = grupo(), m = marks(), sim = 0, nao = 0;
+    ativos().forEach(function (a) { if (m[a.id] === "S") sim++; else if (m[a.id] === "N") nao++; });
+    var n = ativos().length, pend = n - sim - nao;
+    $("total").textContent = fmt(sim * S.valor);
+    $("paidCount").textContent = sim; $("ofCount").textContent = " / " + n;
+    $("barY").style.width = (n ? sim / n * 100 : 0) + "%";
+    $("barN").style.width = (n ? nao / n * 100 : 0) + "%";
+    $("legend").textContent = "";
+    [["Pagos", sim], ["Não pagaram", nao], ["Pendentes", pend], ["Previsto R$ " + fmt(n * S.valor), null]].forEach(function (x) {
+      var s = document.createElement("span"); s.textContent = x[1] === null ? x[0] : x[0] + " " + x[1]; $("legend").appendChild(s);
+    });
+  }
+  function renderList() {
+    var g = grupo(), m = marks(), ul = $("list"); ul.textContent = "";
+    var shown = 0;
+    ativos().forEach(function (a, i) {
+      var st = m[a.id] || "";
+      var f = view.filtro;
+      if (f === "pendentes" && st) return;
+      if (f === "pagos" && st !== "S") return;
+      if (f === "nao" && st !== "N") return;
+      shown++;
+      var li = document.createElement("li"); li.className = "row"; li.dataset.id = a.id;
+      var num = document.createElement("span"); num.className = "num"; num.textContent = i + 1;
+      var inp = document.createElement("input"); inp.className = "name"; inp.type = "text"; inp.value = a.nome || "";
+      inp.placeholder = "Nome do atleta"; inp.setAttribute("aria-label", "Nome do atleta " + (i + 1)); inp.autocomplete = "off";
+      inp.addEventListener("input", function () { a.nome = inp.value; scheduleSave(); });
+      var tg = document.createElement("div"); tg.className = "toggle";
+      [["S", "Sim", "sim"], ["N", "Não", "nao"]].forEach(function (o) {
+        var b = document.createElement("button"); b.className = "tg " + o[2]; b.textContent = o[1];
+        b.setAttribute("aria-pressed", st === o[0] ? "true" : "false");
+        b.setAttribute("aria-label", o[1] + " para " + nomeDe(a, i));
+        b.addEventListener("click", function () { setStatus(a.id, st === o[0] ? "" : o[0]); });
+        tg.appendChild(b);
+      });
+      var del = document.createElement("button"); del.className = "del";
+      del.setAttribute("aria-label", "Excluir " + nomeDe(a, i));
+      if (askDel === a.id) { del.classList.add("ask"); del.textContent = "Excluir?"; }
+      else { del.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>'; }
+      del.addEventListener("click", function () { clearTimeout(askTimer);
+        if (askDel === a.id) { askDel = null; removeAthlete(a.id); }
+        else { askDel = a.id; renderList(); askTimer = setTimeout(function () { askDel = null; renderList(); }, 3500); } });
+      li.appendChild(num); li.appendChild(inp); li.appendChild(tg); li.appendChild(del); ul.appendChild(li);
+    });
+    if (!shown) { var li2 = document.createElement("li"); li2.className = "empty"; li2.textContent = "Nenhum atleta neste filtro."; ul.appendChild(li2); }
+  }
+  function renderAll() { renderTabs(); renderMonth(); renderBoard(); renderList(); $("valor").value = S.valor; $("nomeGrupo").value = grupo().nome; updateDelGroup(); }
+
+  /* ---------- ações ---------- */
+  function setStatus(aid, st) {
+    var g = grupo();
+    S.pag[g.id] = S.pag[g.id] || {}; S.pag[g.id][view.mes] = S.pag[g.id][view.mes] || {};
+    if (st) S.pag[g.id][view.mes][aid] = st; else delete S.pag[g.id][view.mes][aid];
+    renderBoard(); renderList(); scheduleSave();
+  }
+  function removeAthlete(aid) {
+    var g = grupo();
+    var a = g.atletas.find(function (x) { return x.id === aid; });
+    var porMes = S.pag[g.id] || {};
+    // apaga as marcações do mês atual em diante; os meses anteriores ficam como estavam
+    Object.keys(porMes).forEach(function (k) { if (k >= view.mes) delete porMes[k][aid]; });
+    if (a && a.de && a.de >= view.mes) {
+      g.atletas = g.atletas.filter(function (x) { return x.id !== aid; });   // entrou neste mês ou depois: nunca existiu nos anteriores
+    } else if (a) {
+      a.ate = mesDelta(view.mes, -1);   // último mês em que ainda aparece
+    }
+    renderTabs(); renderBoard(); renderList(); scheduleSave();
+  }
+  function shiftMonth(d) {
+    var p = view.mes.split("-"), dt = new Date(+p[0], +p[1] - 1 + d, 1);
+    view.mes = dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0"); renderAll();
+  }
+  $("prev").addEventListener("click", function () { shiftMonth(-1); });
+  $("next").addEventListener("click", function () { shiftMonth(1); });
+  $("filters").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return; view.filtro = b.dataset.f;
+    document.querySelectorAll("#filters button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+    renderList();
+  });
+  $("addAthlete").addEventListener("click", function () {
+    var g = grupo(); g.atletas.push({ id: uid(), nome: "", de: view.mes }); renderBoard(); renderList(); scheduleSave();
+    var inputs = document.querySelectorAll(".name"); if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+  $("valor").addEventListener("change", function () {
+    var v = parseFloat(String($("valor").value).replace(",", "."));
+    if (isFinite(v) && v >= 0) { S.valor = v; renderBoard(); scheduleSave(); } else { $("valor").value = S.valor; }
+  });
+  var askGroup = null, askGroupTimer = null;
+  function updateDelGroup() {
+    var b = $("delGroup"), only = S.grupos.length <= 1, ask = !only && askGroup === view.gid;
+    b.disabled = only; b.classList.toggle("ask", ask);
+    b.textContent = ask ? "Confirmar: excluir \u201c" + grupo().nome + "\u201d e todo o histórico" : "Excluir grupo atual";
+    $("delGroupNote").textContent = only ? "É preciso manter pelo menos um grupo." : "";
+  }
+  $("delGroup").addEventListener("click", function () {
+    if (S.grupos.length <= 1) return;
+    clearTimeout(askGroupTimer);
+    if (askGroup === view.gid) {
+      var id = view.gid; askGroup = null;
+      S.grupos = S.grupos.filter(function (g) { return g.id !== id; });
+      delete S.pag[id]; view.gid = S.grupos[0].id;
+      renderAll(); scheduleSave(); setNote("Grupo excluído.");
+    } else {
+      askGroup = view.gid; updateDelGroup();
+      askGroupTimer = setTimeout(function () { askGroup = null; updateDelGroup(); }, 4000);
+    }
+  });
+  $("nomeGrupo").addEventListener("change", function () {
+    var nome = $("nomeGrupo").value.trim(), g = grupo();
+    if (!nome) { $("nomeGrupo").value = g.nome; return; }
+    g.nome = nome; $("nomeGrupo").value = nome; renderTabs(); scheduleSave();
+  });
+  $("addGroup").addEventListener("click", function () {
+    var nome = $("novoGrupo").value.trim(); if (!nome) return;
+    var at = []; for (var i = 0; i < 3; i++) at.push({ id: uid(), nome: "", de: view.mes });
+    var g = { id: "g" + Date.now().toString(36), nome: nome, atletas: at };
+    S.grupos.push(g); view.gid = g.id; $("novoGrupo").value = ""; renderAll(); scheduleSave();
+  });
+  $("copy").addEventListener("click", function () {
+    var g = grupo(), m = marks(), linhas = [];
+    ativos().forEach(function (a, i) { if (m[a.id] !== "S") linhas.push((i + 1) + ". " + nomeDe(a, i)); });
+    var txt = "Mensalidade " + $("monthLabel").textContent + " (" + g.nome + ") – R$ " + fmt(S.valor) + "\nPendentes (" + linhas.length + "):\n" + linhas.join("\n");
+    var ok = function () { setNote("Lista copiada."); };
+    var fail = function () { var t = document.createElement("textarea"); t.value = txt; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); ok(); } catch (e) { setNote("Não foi possível copiar."); } t.remove(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, fail); else fail();
+  });
+
+  /* ---------- menu lateral ---------- */
+  var TITULOS = { controle: "Controle de Mensalidades", ajustes: "Ajustes" };
+  function setMenu(open) {
+    $("drawer").classList.toggle("open", open); $("scrim").classList.toggle("open", open);
+    if (open) $("drawer").removeAttribute("inert"); else $("drawer").setAttribute("inert", "");
+    $("menuBtn").setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) { var cur = document.querySelector('.nav-item[aria-current="page"]'); if (cur) cur.focus(); } else { $("menuBtn").focus(); }
+  }
+  function setView(v) {
+    $("view-controle").hidden = v !== "controle"; $("controleHead").hidden = v !== "controle";
+    $("view-ajustes").hidden = v !== "ajustes";
+    $("viewTitle").textContent = TITULOS[v];
+    document.querySelectorAll(".nav-item").forEach(function (b) {
+      if (b.dataset.view === v) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+    });
+    window.scrollTo(0, 0);
+  }
+  $("menuBtn").addEventListener("click", function () { setMenu(true); });
+  $("scrim").addEventListener("click", function () { setMenu(false); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && $("drawer").classList.contains("open")) setMenu(false); });
+  $("drawer").addEventListener("click", function (e) {
+    var b = e.target.closest(".nav-item"); if (!b) return; setView(b.dataset.view); setMenu(false);
+  });
+
+  /* ---------- início ---------- */
+  function start(initial) {
+    S = normalize(initial);
+    view.gid = S.grupos[0].id; view.mes = mesAtual();
+    renderAll();
+  }
+  start(readLocal());
+  $("storeNote").textContent = "Os dados ficam salvos neste aparelho (neste navegador).";
+
+})();
+</script>
+</body></html>
