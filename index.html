@@ -1,4 +1,18 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><title>Controle de Mensalidades</title>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0e6b4e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mensalidades">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>Controle de Mensalidades</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -33,6 +47,7 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.35; padding-inline: 16px; padding-block: 0 32px; }
 button { font: inherit; color: inherit; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -109,8 +124,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
 .note { margin: 0; font-size: 13px; color: var(--muted); min-height: 1em; }
 @media (prefers-reduced-motion: no-preference) { .bar i { transition: width .25s ease; } }
-</style></head><body>
 
+.sync { margin-left: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.sync.off { color: var(--no); font-weight: 600; }
+.loading { margin: 24px 0; text-align: center; color: var(--muted); }
+.login { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: grid; place-items: center; padding: 16px; }
+.login-card { width: min(100%, 360px); display: flex; flex-direction: column; gap: 12px; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.login-card h2 { margin: 0; font-family: var(--font-display); font-size: 26px; text-transform: uppercase; letter-spacing: .04em; }
+.login-card p { margin: 0; color: var(--muted); }
+.login-card input { height: 48px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; background: var(--bg); color: var(--ink); font: inherit; }
+.login-card .erro { color: var(--no); min-height: 1.2em; font-weight: 500; }
+</style>
+</head>
+<body>
 <div class="app">
   <header class="top">
     <div class="topbar">
@@ -118,8 +144,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
       <span class="view-title" id="viewTitle">Controle de Mensalidades</span>
+      <span class="sync" id="sync" role="status"></span>
     </div>
-    <div class="head" id="controleHead">
+    <div class="head" id="controleHead" hidden>
     <div class="tabs" id="tabs" role="tablist" aria-label="Grupos"></div>
     <div class="month">
       <button class="step" id="prev" aria-label="Mês anterior">‹</button>
@@ -129,7 +156,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
     </div>
   </header>
 
-  <div id="view-controle" class="view">
+  <p class="loading" id="loading" role="status">Carregando…</p>
+
+  <div id="view-controle" class="view" hidden>
 
   <section class="board" aria-live="polite">
     <div>
@@ -176,7 +205,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
       <button class="btn" id="copy">Copiar lista de pendentes</button>
     </div>
     <p class="note" id="note"></p>
-    <p class="note" id="storeNote"></p>
+    <p class="note">Os dados ficam na nuvem. Quem usa o link vê as mesmas informações e as alterações de cada pessoa aparecem para todos.</p>
   </section>
   </div>
 </div>
@@ -188,52 +217,204 @@ button { font: inherit; color: inherit; cursor: pointer; }
   <button class="nav-item" data-view="ajustes">Ajustes</button>
 </nav>
 
+<div class="login" id="login" hidden>
+  <form id="loginForm" class="login-card" autocomplete="off">
+    <h2>Código de acesso</h2>
+    <p>Digite o código combinado com a organização para abrir o controle.</p>
+    <input id="codigo" type="password" autocomplete="off" inputmode="text" aria-label="Código de acesso">
+    <p class="erro" id="loginErro" role="alert"></p>
+    <button class="btn" type="submit">Entrar</button>
+  </form>
+</div>
+
+
 <script>
 (function () {
   var MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-  var KEY = "mensalidades-v1";
-  var db = null, docRef = null;
-  var S = null;           // estado
+  var CACHE_KEY = "mensalidades-cache-v2", CODE_KEY = "mensalidades-codigo";
+  var S = null;                                   // estado (confirmado pelo servidor + alterações ainda não enviadas)
   var view = { gid: null, mes: null, filtro: "todos" };
-  var dirty = false, saveTimer = null, askDel = null, askTimer = null;
+  var fila = [], sending = false, online = true, montado = false, loading = false;
+  var nameTimer = null, retryTimer = null, askDel = null, askTimer = null, askGroup = null, askGroupTimer = null;
 
-  function uid() { return "a" + Math.random().toString(36).slice(2, 8); }
+  
+const MES = /^\d{4}-\d{2}$/;
+const texto = (v, n) => (typeof v === "string" ? v.slice(0, n) : "");
+
+function defaultState() {
+  const atletas = [];
+  for (let i = 1; i <= 3; i++) atletas.push({ id: "a" + i, nome: "" });
+  return { valor: 30, grupos: [{ id: "masculino", nome: "Masculino", atletas }], pag: {} };
+}
+
+function normalize(d) {
+  if (!d || typeof d !== "object" || !Array.isArray(d.grupos) || !d.grupos.length) return defaultState();
+  if (!d.pag || typeof d.pag !== "object") d.pag = {};
+  if (typeof d.valor !== "number" || !isFinite(d.valor)) d.valor = 30;
+  return d;
+}
+
+function mesDelta(m, d) {
+  const p = m.split("-");
+  const dt = new Date(+p[0], +p[1] - 1 + d, 1);
+  return dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0");
+}
+
+function limparAtleta(a) {
+  if (!a || typeof a.id !== "string" || !a.id || a.id.length > 24) return null;
+  const r = { id: a.id, nome: texto(a.nome, 60) };
+  if (typeof a.de === "string" && MES.test(a.de)) r.de = a.de;
+  return r;
+}
+
+function applyOp(S, op) {
+  if (!op || typeof op !== "object") return S;
+  const g = typeof op.gid === "string" ? S.grupos.find((x) => x.id === op.gid) : null;
+  switch (op.t) {
+    case "status": {
+      if (!g || !MES.test(op.mes) || !g.atletas.some((a) => a.id === op.aid)) break;
+      if (!S.pag[g.id]) S.pag[g.id] = {};
+      if (!S.pag[g.id][op.mes]) S.pag[g.id][op.mes] = {};
+      if (op.st === "S" || op.st === "N") S.pag[g.id][op.mes][op.aid] = op.st;
+      else delete S.pag[g.id][op.mes][op.aid];
+      break;
+    }
+    case "nome": {
+      const a = g && g.atletas.find((x) => x.id === op.aid);
+      if (a) a.nome = texto(op.nome, 60);
+      break;
+    }
+    case "addAtleta": {
+      const a = limparAtleta(op.atleta);
+      if (!g || !a || g.atletas.length >= 200 || g.atletas.some((x) => x.id === a.id)) break;
+      g.atletas.push(a);
+      break;
+    }
+    case "remAtleta": {
+      if (!g || !MES.test(op.mes)) break;
+      const a = g.atletas.find((x) => x.id === op.aid);
+      if (!a) break;
+      const porMes = S.pag[g.id] || {};
+      // apaga as marcações do mês indicado em diante; os meses anteriores ficam como estavam
+      Object.keys(porMes).forEach((k) => { if (k >= op.mes) delete porMes[k][a.id]; });
+      if (a.de && a.de >= op.mes) g.atletas = g.atletas.filter((x) => x.id !== a.id);
+      else a.ate = mesDelta(op.mes, -1);
+      break;
+    }
+    case "valor": {
+      if (typeof op.valor === "number" && isFinite(op.valor) && op.valor >= 0 && op.valor <= 100000) S.valor = op.valor;
+      break;
+    }
+    case "addGrupo": {
+      const n = op.grupo;
+      if (!n || typeof n.id !== "string" || !n.id || n.id.length > 24 || S.grupos.length >= 20) break;
+      if (S.grupos.some((x) => x.id === n.id)) break;
+      const nome = texto(n.nome, 24).trim();
+      if (!nome) break;
+      const atletas = (Array.isArray(n.atletas) ? n.atletas : []).slice(0, 200).map(limparAtleta).filter(Boolean);
+      S.grupos.push({ id: n.id, nome, atletas });
+      break;
+    }
+    case "renGrupo": {
+      const nome = texto(op.nome, 24).trim();
+      if (g && nome) g.nome = nome;
+      break;
+    }
+    case "delGrupo": {
+      if (!g || S.grupos.length <= 1) break;
+      S.grupos = S.grupos.filter((x) => x.id !== g.id);
+      delete S.pag[g.id];
+      break;
+    }
+  }
+  return S;
+}
+
+  function uid() { return "a" + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3); }
   function mesAtual() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
-  function defaultState() {
-    var at = []; for (var i = 1; i <= 3; i++) at.push({ id: "a" + i, nome: "" });
-    return { valor: 30, grupos: [{ id: "masculino", nome: "Masculino", atletas: at }], pag: {} };
-  }
-  function grupo() { return S.grupos.find(function (g) { return g.id === view.gid; }) || S.grupos[0]; }
-  function mesDelta(m, d) { var p = m.split("-"), dt = new Date(+p[0], +p[1] - 1 + d, 1); return dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0"); }
-  function ativos() { var g = grupo(); return g.atletas.filter(function (a) { return (!a.de || a.de <= view.mes) && (!a.ate || a.ate >= view.mes); }); }
-  function marks() {
-    var p = S.pag; var g = grupo();
-    return (p[g.id] && p[g.id][view.mes]) || {};
-  }
-  function nomeDe(a, i) { return a.nome && a.nome.trim() ? a.nome.trim() : "Atleta " + (i + 1); }
-  function fmt(n) { return Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 2 }); }
   function $(id) { return document.getElementById(id); }
+  function fmt(n) { return Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 2 }); }
+  function grupo() { return S.grupos.find(function (g) { return g.id === view.gid; }) || S.grupos[0]; }
+  function ativos() { var g = grupo(); return g.atletas.filter(function (a) { return (!a.de || a.de <= view.mes) && (!a.ate || a.ate >= view.mes); }); }
+  function marks() { var g = grupo(); return (S.pag[g.id] && S.pag[g.id][view.mes]) || {}; }
+  function nomeDe(a, i) { return a.nome && a.nome.trim() ? a.nome.trim() : "Atleta " + (i + 1); }
+  function setNote(t) { $("note").textContent = t; if (t) setTimeout(function () { if ($("note").textContent === t) $("note").textContent = ""; }, 2500); }
+  function emEdicao() { var ae = document.activeElement; return !!(ae && ae.classList && ae.classList.contains("name")); }
 
-  /* ---------- persistência ---------- */
-  function readLocal() { try { var r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
-  function writeLocal() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
-  function scheduleSave() {
-    dirty = true; clearTimeout(saveTimer);
-    saveTimer = setTimeout(function () {
-      writeLocal();
-      if (docRef) {
-        docRef.set(JSON.parse(JSON.stringify(S))).then(function () { dirty = false; setNote("Salvo"); })
-          .catch(function () { setNote("Não foi possível salvar na nuvem. Os dados ficaram neste aparelho."); });
-      } else { dirty = false; }
-    }, 500);
-  }
-  function setNote(t) { $("note").textContent = t; if (t === "Salvo") setTimeout(function () { if ($("note").textContent === "Salvo") $("note").textContent = ""; }, 1500); }
+  /* ---------- cache local e código de acesso ---------- */
+  function lerCache() { try { var r = localStorage.getItem(CACHE_KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+  function gravarCache() { try { localStorage.setItem(CACHE_KEY, JSON.stringify(S)); } catch (e) {} }
+  function codigo() { try { return localStorage.getItem(CODE_KEY) || ""; } catch (e) { return ""; } }
 
-  function normalize(d) {
-    if (!d || !d.grupos || !d.grupos.length) return defaultState();
-    d.pag = d.pag || {}; d.valor = typeof d.valor === "number" ? d.valor : 30;
-    return d;
+  /* ---------- comunicação com o servidor ---------- */
+  function api(method, body) {
+    return fetch("/api/estado", {
+      method: method,
+      headers: { "content-type": "application/json", "x-codigo": codigo() },
+      body: body ? JSON.stringify(body) : undefined,
+      cache: "no-store"
+    }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { status: r.status, data: d }; }); });
   }
+  function setSync() {
+    var el = $("sync");
+    if (!online) { el.textContent = fila.length ? "Sem conexão · " + fila.length + " pendente" + (fila.length > 1 ? "s" : "") : "Sem conexão"; el.className = "sync off"; }
+    else if (sending) { el.textContent = "Salvando…"; el.className = "sync"; }
+    else { el.textContent = "Sincronizado"; el.className = "sync"; }
+  }
+  function aplicarServidor(estado) {
+    if (nameTimer) return;                        // há um nome sendo digitado; não pisar nele
+    var novo = normalize(estado);
+    fila.forEach(function (op) { applyOp(novo, op); });
+    S = novo; gravarCache();
+    if (!montado) { montar(); return; }
+    if (!S.grupos.some(function (g) { return g.id === view.gid; })) view.gid = S.grupos[0].id;
+    if (!emEdicao()) renderAll();
+  }
+  function carregar() {
+    if (loading) return; loading = true;
+    api("GET").then(function (r) {
+      loading = false;
+      if (r.status === 401) { mostrarLogin(!!codigo()); return; }
+      if (r.status !== 200 || !r.data.estado) throw new Error("falha");
+      online = true; esconderLogin(); aplicarServidor(r.data.estado); setSync();
+    }).catch(function () {
+      loading = false; online = false; setSync();
+      if (!montado) $("loading").textContent = "Sem conexão. Tentando novamente…";
+      clearTimeout(retryTimer); retryTimer = setTimeout(function () { if (fila.length) enviar(); else carregar(); }, 5000);
+    });
+  }
+  function enviar() {
+    if (sending || !fila.length) return;
+    sending = true; setSync();
+    var lote = fila.slice();
+    api("POST", { ops: lote }).then(function (r) {
+      sending = false;
+      if (r.status === 401) { mostrarLogin(!!codigo()); setSync(); return; }
+      if (r.status === 400) { fila.splice(0, lote.length); setSync(); carregar(); return; }
+      if (r.status !== 200 || !r.data.estado) throw new Error("falha");
+      fila.splice(0, lote.length); online = true;
+      aplicarServidor(r.data.estado); setSync();
+      if (fila.length) enviar();
+    }).catch(function () {
+      sending = false; online = false; setSync();
+      clearTimeout(retryTimer); retryTimer = setTimeout(enviar, 5000);
+    });
+  }
+  function dispatch(op) { applyOp(S, op); fila.push(op); gravarCache(); enviar(); }
+
+  /* ---------- tela de código de acesso ---------- */
+  function mostrarLogin(errado) {
+    $("login").hidden = false; $("loginErro").textContent = errado ? "Código incorreto. Tente de novo." : "";
+    $("codigo").focus();
+  }
+  function esconderLogin() { $("login").hidden = true; }
+  $("loginForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var v = $("codigo").value.trim(); if (!v) return;
+    try { localStorage.setItem(CODE_KEY, v); } catch (err) {}
+    $("codigo").value = "";
+    if (fila.length) enviar(); else carregar();
+  });
 
   /* ---------- render ---------- */
   function renderTabs() {
@@ -246,13 +427,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
       t.appendChild(b);
     });
   }
-  function renderMonth() {
-    var p = view.mes.split("-"); $("monthLabel").textContent = MESES[+p[1] - 1] + " " + p[0];
-  }
+  function renderMonth() { var p = view.mes.split("-"); $("monthLabel").textContent = MESES[+p[1] - 1] + " " + p[0]; }
   function renderBoard() {
-    var g = grupo(), m = marks(), sim = 0, nao = 0;
-    ativos().forEach(function (a) { if (m[a.id] === "S") sim++; else if (m[a.id] === "N") nao++; });
-    var n = ativos().length, pend = n - sim - nao;
+    var m = marks(), sim = 0, nao = 0, lista = ativos();
+    lista.forEach(function (a) { if (m[a.id] === "S") sim++; else if (m[a.id] === "N") nao++; });
+    var n = lista.length, pend = n - sim - nao;
     $("total").textContent = fmt(sim * S.valor);
     $("paidCount").textContent = sim; $("ofCount").textContent = " / " + n;
     $("barY").style.width = (n ? sim / n * 100 : 0) + "%";
@@ -266,8 +445,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     var g = grupo(), m = marks(), ul = $("list"); ul.textContent = "";
     var shown = 0;
     ativos().forEach(function (a, i) {
-      var st = m[a.id] || "";
-      var f = view.filtro;
+      var st = m[a.id] || "", f = view.filtro;
       if (f === "pendentes" && st) return;
       if (f === "pagos" && st !== "S") return;
       if (f === "nao" && st !== "N") return;
@@ -275,8 +453,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
       var li = document.createElement("li"); li.className = "row"; li.dataset.id = a.id;
       var num = document.createElement("span"); num.className = "num"; num.textContent = i + 1;
       var inp = document.createElement("input"); inp.className = "name"; inp.type = "text"; inp.value = a.nome || "";
-      inp.placeholder = "Nome do atleta"; inp.setAttribute("aria-label", "Nome do atleta " + (i + 1)); inp.autocomplete = "off";
-      inp.addEventListener("input", function () { a.nome = inp.value; scheduleSave(); });
+      inp.placeholder = "Nome do atleta"; inp.setAttribute("aria-label", "Nome do atleta " + (i + 1)); inp.autocomplete = "off"; inp.maxLength = 60;
+      inp.addEventListener("input", function () {
+        a.nome = inp.value; clearTimeout(nameTimer);
+        nameTimer = setTimeout(function () { nameTimer = null; dispatch({ t: "nome", gid: g.id, aid: a.id, nome: inp.value }); }, 600);
+      });
       var tg = document.createElement("div"); tg.className = "toggle";
       [["S", "Sim", "sim"], ["N", "Não", "nao"]].forEach(function (o) {
         var b = document.createElement("button"); b.className = "tg " + o[2]; b.textContent = o[1];
@@ -289,39 +470,36 @@ button { font: inherit; color: inherit; cursor: pointer; }
       del.setAttribute("aria-label", "Excluir " + nomeDe(a, i));
       if (askDel === a.id) { del.classList.add("ask"); del.textContent = "Excluir?"; }
       else { del.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>'; }
-      del.addEventListener("click", function () { clearTimeout(askTimer);
+      del.addEventListener("click", function () {
+        clearTimeout(askTimer);
         if (askDel === a.id) { askDel = null; removeAthlete(a.id); }
-        else { askDel = a.id; renderList(); askTimer = setTimeout(function () { askDel = null; renderList(); }, 3500); } });
+        else { askDel = a.id; renderList(); askTimer = setTimeout(function () { askDel = null; renderList(); }, 3500); }
+      });
       li.appendChild(num); li.appendChild(inp); li.appendChild(tg); li.appendChild(del); ul.appendChild(li);
     });
     if (!shown) { var li2 = document.createElement("li"); li2.className = "empty"; li2.textContent = "Nenhum atleta neste filtro."; ul.appendChild(li2); }
   }
-  function renderAll() { renderTabs(); renderMonth(); renderBoard(); renderList(); $("valor").value = S.valor; $("nomeGrupo").value = grupo().nome; updateDelGroup(); }
+  function updateDelGroup() {
+    var b = $("delGroup"), only = S.grupos.length <= 1, ask = !only && askGroup === view.gid;
+    b.disabled = only; b.classList.toggle("ask", ask);
+    b.textContent = ask ? "Confirmar: excluir “" + grupo().nome + "” e todo o histórico" : "Excluir grupo atual";
+    $("delGroupNote").textContent = only ? "É preciso manter pelo menos um grupo." : "";
+  }
+  function renderAll() {
+    renderTabs(); renderMonth(); renderBoard(); renderList();
+    $("valor").value = S.valor; $("nomeGrupo").value = grupo().nome; updateDelGroup();
+  }
 
   /* ---------- ações ---------- */
   function setStatus(aid, st) {
-    var g = grupo();
-    S.pag[g.id] = S.pag[g.id] || {}; S.pag[g.id][view.mes] = S.pag[g.id][view.mes] || {};
-    if (st) S.pag[g.id][view.mes][aid] = st; else delete S.pag[g.id][view.mes][aid];
-    renderBoard(); renderList(); scheduleSave();
+    dispatch({ t: "status", gid: grupo().id, mes: view.mes, aid: aid, st: st });
+    renderBoard(); renderList();
   }
   function removeAthlete(aid) {
-    var g = grupo();
-    var a = g.atletas.find(function (x) { return x.id === aid; });
-    var porMes = S.pag[g.id] || {};
-    // apaga as marcações do mês atual em diante; os meses anteriores ficam como estavam
-    Object.keys(porMes).forEach(function (k) { if (k >= view.mes) delete porMes[k][aid]; });
-    if (a && a.de && a.de >= view.mes) {
-      g.atletas = g.atletas.filter(function (x) { return x.id !== aid; });   // entrou neste mês ou depois: nunca existiu nos anteriores
-    } else if (a) {
-      a.ate = mesDelta(view.mes, -1);   // último mês em que ainda aparece
-    }
-    renderTabs(); renderBoard(); renderList(); scheduleSave();
+    dispatch({ t: "remAtleta", gid: grupo().id, aid: aid, mes: view.mes });
+    renderBoard(); renderList();
   }
-  function shiftMonth(d) {
-    var p = view.mes.split("-"), dt = new Date(+p[0], +p[1] - 1 + d, 1);
-    view.mes = dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0"); renderAll();
-  }
+  function shiftMonth(d) { view.mes = mesDelta(view.mes, d); renderAll(); }
   $("prev").addEventListener("click", function () { shiftMonth(-1); });
   $("next").addEventListener("click", function () { shiftMonth(1); });
   $("filters").addEventListener("click", function (e) {
@@ -330,28 +508,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
     renderList();
   });
   $("addAthlete").addEventListener("click", function () {
-    var g = grupo(); g.atletas.push({ id: uid(), nome: "", de: view.mes }); renderBoard(); renderList(); scheduleSave();
+    dispatch({ t: "addAtleta", gid: grupo().id, atleta: { id: uid(), nome: "", de: view.mes } });
+    renderBoard(); renderList();
     var inputs = document.querySelectorAll(".name"); if (inputs.length) inputs[inputs.length - 1].focus();
   });
   $("valor").addEventListener("change", function () {
     var v = parseFloat(String($("valor").value).replace(",", "."));
-    if (isFinite(v) && v >= 0) { S.valor = v; renderBoard(); scheduleSave(); } else { $("valor").value = S.valor; }
+    if (isFinite(v) && v >= 0) { dispatch({ t: "valor", valor: v }); renderBoard(); } else { $("valor").value = S.valor; }
   });
-  var askGroup = null, askGroupTimer = null;
-  function updateDelGroup() {
-    var b = $("delGroup"), only = S.grupos.length <= 1, ask = !only && askGroup === view.gid;
-    b.disabled = only; b.classList.toggle("ask", ask);
-    b.textContent = ask ? "Confirmar: excluir \u201c" + grupo().nome + "\u201d e todo o histórico" : "Excluir grupo atual";
-    $("delGroupNote").textContent = only ? "É preciso manter pelo menos um grupo." : "";
-  }
   $("delGroup").addEventListener("click", function () {
     if (S.grupos.length <= 1) return;
     clearTimeout(askGroupTimer);
     if (askGroup === view.gid) {
       var id = view.gid; askGroup = null;
-      S.grupos = S.grupos.filter(function (g) { return g.id !== id; });
-      delete S.pag[id]; view.gid = S.grupos[0].id;
-      renderAll(); scheduleSave(); setNote("Grupo excluído.");
+      dispatch({ t: "delGrupo", gid: id }); view.gid = S.grupos[0].id;
+      renderAll(); setNote("Grupo excluído.");
     } else {
       askGroup = view.gid; updateDelGroup();
       askGroupTimer = setTimeout(function () { askGroup = null; updateDelGroup(); }, 4000);
@@ -360,13 +531,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
   $("nomeGrupo").addEventListener("change", function () {
     var nome = $("nomeGrupo").value.trim(), g = grupo();
     if (!nome) { $("nomeGrupo").value = g.nome; return; }
-    g.nome = nome; $("nomeGrupo").value = nome; renderTabs(); scheduleSave();
+    dispatch({ t: "renGrupo", gid: g.id, nome: nome }); $("nomeGrupo").value = grupo().nome; renderTabs();
   });
   $("addGroup").addEventListener("click", function () {
     var nome = $("novoGrupo").value.trim(); if (!nome) return;
     var at = []; for (var i = 0; i < 3; i++) at.push({ id: uid(), nome: "", de: view.mes });
-    var g = { id: "g" + Date.now().toString(36), nome: nome, atletas: at };
-    S.grupos.push(g); view.gid = g.id; $("novoGrupo").value = ""; renderAll(); scheduleSave();
+    var id = "g" + Date.now().toString(36);
+    dispatch({ t: "addGrupo", grupo: { id: id, nome: nome, atletas: at } });
+    if (S.grupos.some(function (g) { return g.id === id; })) view.gid = id;
+    $("novoGrupo").value = ""; renderAll();
   });
   $("copy").addEventListener("click", function () {
     var g = grupo(), m = marks(), linhas = [];
@@ -402,14 +575,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
   });
 
   /* ---------- início ---------- */
-  function start(initial) {
-    S = normalize(initial);
+  function montar() {
+    montado = true;
     view.gid = S.grupos[0].id; view.mes = mesAtual();
-    renderAll();
+    $("loading").hidden = true; setView("controle"); renderAll();
   }
-  start(readLocal());
-  $("storeNote").textContent = "Os dados ficam salvos neste aparelho (neste navegador).";
+  var cache = lerCache();
+  if (cache) { S = normalize(cache); montar(); }
+  setSync(); carregar();
 
+  setInterval(function () { if (!document.hidden && !sending && !fila.length && !nameTimer && !emEdicao()) carregar(); }, 10000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && !sending && !fila.length && !nameTimer) carregar(); });
+  window.addEventListener("online", function () { if (fila.length) enviar(); else carregar(); });
+
+  if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js").catch(function () {}); }
 })();
 </script>
-</body></html>
+</body>
+</html>
