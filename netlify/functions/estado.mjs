@@ -10,13 +10,14 @@ const texto = (v, n) => (typeof v === "string" ? v.slice(0, n) : "");
 export function defaultState() {
   const atletas = [];
   for (let i = 1; i <= 3; i++) atletas.push({ id: "a" + i, nome: "" });
-  return { valor: 30, grupos: [{ id: "masculino", nome: "Masculino", atletas }], pag: {} };
+  return { rev: 0, valor: 30, grupos: [{ id: "masculino", nome: "Masculino", atletas }], pag: {} };
 }
 
 export function normalize(d) {
   if (!d || typeof d !== "object" || !Array.isArray(d.grupos) || !d.grupos.length) return defaultState();
   if (!d.pag || typeof d.pag !== "object") d.pag = {};
   if (typeof d.valor !== "number" || !isFinite(d.valor)) d.valor = 30;
+  if (typeof d.rev !== "number") d.rev = 0;
   return d;
 }
 
@@ -97,6 +98,8 @@ export function applyOp(S, op) {
 }
 
 
+const TENTATIVAS = 8;
+
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), {
     status,
@@ -110,27 +113,49 @@ function codigoEsperado() {
   return (typeof process !== "undefined" && process.env && process.env.CODIGO_ACESSO) || "";
 }
 
+// Leitura sempre atualizada (consistência forte). Sem isso o Netlify pode devolver
+// uma cópia antiga logo depois de uma gravação, e os nomes voltam para valores velhos.
+async function ler(armazem) {
+  const r = await armazem.getWithMetadata("estado", { type: "json", consistency: "strong" });
+  if (!r) return { S: normalize(null), etag: null, existe: false };
+  return { S: normalize(r.data), etag: r.etag || null, existe: true };
+}
+
+// Gravação condicional: só vale se ninguém gravou no meio do caminho.
+async function gravar(armazem, S, etag, existe) {
+  const opcoes = etag ? { onlyIfMatch: etag } : existe ? {} : { onlyIfNew: true };
+  const r = await armazem.setJSON("estado", S, opcoes);
+  return !r || r.modified !== false;
+}
+
 // "armazem" é injetável para testes. Em produção usa o Netlify Blobs.
 export async function tratar(req, armazem, codigo) {
   if (codigo && req.headers.get("x-codigo") !== codigo) return json({ erro: "codigo" }, 401);
 
-  const S = normalize(await armazem.get("estado", { type: "json" }));
-
-  if (req.method === "GET") return json({ estado: S });
+  if (req.method === "GET") {
+    const { S } = await ler(armazem);
+    return json({ estado: S });
+  }
 
   if (req.method === "POST") {
     let corpo;
     try { corpo = await req.json(); } catch (e) { return json({ erro: "json" }, 400); }
     const ops = Array.isArray(corpo && corpo.ops) ? corpo.ops : null;
     if (!ops || ops.length > 100) return json({ erro: "ops" }, 400);
-    ops.forEach((op) => applyOp(S, op));
-    await armazem.setJSON("estado", S);
-    return json({ estado: S });
+
+    for (let i = 0; i < TENTATIVAS; i++) {
+      const { S, etag, existe } = await ler(armazem);
+      ops.forEach((op) => applyOp(S, op));
+      S.rev = (S.rev || 0) + 1;
+      if (await gravar(armazem, S, etag, existe)) return json({ estado: S });
+      await new Promise((ok) => setTimeout(ok, 30 + Math.random() * 120));   // outra pessoa gravou agora; tenta de novo
+    }
+    return json({ erro: "ocupado" }, 503);
   }
 
   return json({ erro: "metodo" }, 405);
 }
 
-export default async (req) => tratar(req, getStore("mensalidades"), codigoEsperado());
+export default async (req) => tratar(req, getStore({ name: "mensalidades", consistency: "strong" }), codigoEsperado());
 
 export const config = { path: "/api/estado" };

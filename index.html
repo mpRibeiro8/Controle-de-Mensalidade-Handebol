@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#0e6b4e">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#280001">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Mensalidades">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -19,35 +19,22 @@
 <style>
 /* Layout: placar no topo (arrecadado do mês), lista de atletas com toggle Sim/Não, uma coluna, feito para o polegar. */
 :root {
-  --bg: #eceee8;
-  --surface: #f9faf6;
-  --ink: #17221d;
-  --muted: #5d6b64;
-  --line: #d3d8cf;
-  --accent: #0e6b4e;
-  --accent-ink: #ffffff;
-  --yes: #0e6b4e;
-  --yes-bg: #d7ecdf;
-  --no: #b4410f;
-  --no-bg: #f6ddd0;
+  --bg: #280001;          /* fundo do escudo */
+  --surface: #3b0a07;
+  --ink: #fff0cf;
+  --muted: #d3ab6a;
+  --line: #5e2b1c;
+  --accent: #f8c040;      /* dourado do escudo */
+  --accent-ink: #280001;
+  --no: #ff9a85;
+  --no-bg: #5a1a12;
+  --board-no: #9c2a17;
   --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #101713; --surface: #18221c; --ink: #e8efe9; --muted: #93a398; --line: #2a372f;
-    --accent: #4fc79b; --accent-ink: #08140f; --yes: #5fd4a5; --yes-bg: #1c3a2d; --no: #f0905e; --no-bg: #3d2417;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #101713; --surface: #18221c; --ink: #e8efe9; --muted: #93a398; --line: #2a372f;
-  --accent: #4fc79b; --accent-ink: #08140f; --yes: #5fd4a5; --yes-bg: #1c3a2d; --no: #f0905e; --no-bg: #3d2417;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.35; padding-inline: 16px; padding-block: 0 32px; }
 button { font: inherit; color: inherit; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -73,21 +60,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .tab { flex: none; border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 6px 16px; font-family: var(--font-display); font-weight: 600; font-size: 18px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-.tab[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .month { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .month h1 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 30px; letter-spacing: .02em; text-transform: uppercase; text-align: center; flex: 1; min-width: 0; }
 .step { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); font-size: 22px; line-height: 1; }
 
-.board { background: var(--ink); color: var(--bg); border-radius: 6px; padding: 16px; display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; align-items: end; }
-.board .lbl { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+.board { background: var(--accent); color: var(--accent-ink); border-radius: 6px; padding: 16px; display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; align-items: end; }
+.board .lbl { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
 .board .big { font-family: var(--font-display); font-weight: 700; font-size: 64px; line-height: .95; font-variant-numeric: tabular-nums; }
 .board .big small { font-size: 26px; font-weight: 600; margin-right: 4px; opacity: .7; }
 .board .count { text-align: right; font-family: var(--font-display); font-weight: 600; font-size: 28px; font-variant-numeric: tabular-nums; line-height: 1; }
 .board .count span { font-size: 16px; opacity: .7; }
-.bar { grid-column: 1 / -1; height: 8px; background: rgba(255,255,255,.18); border-radius: 4px; overflow: hidden; margin-top: 10px; display: flex; }
+.bar { grid-column: 1 / -1; height: 8px; background: rgba(40,0,1,.22); border-radius: 4px; overflow: hidden; margin-top: 10px; display: flex; }
 .bar i { display: block; height: 100%; }
-.bar .y { background: #5fd4a5; }
-.bar .n { background: #f0905e; }
+.bar .y { background: var(--accent-ink); }
+.bar .n { background: var(--board-no); }
 .legend { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; opacity: .85; font-variant-numeric: tabular-nums; }
 
 .filters { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
@@ -104,7 +91,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .name:focus { outline: none; border-bottom-color: var(--accent); }
 .toggle { display: flex; gap: 6px; }
 .tg { min-width: 52px; height: 44px; border-radius: 8px; border: 1px solid var(--line); background: transparent; font-weight: 600; font-size: 15px; color: var(--muted); }
-.tg.sim[aria-pressed="true"] { background: var(--yes-bg); border-color: var(--yes); color: var(--yes); }
+.tg.sim[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .tg.nao[aria-pressed="true"] { background: var(--no-bg); border-color: var(--no); color: var(--no); }
 .del { width: 40px; height: 44px; border: 0; background: transparent; color: var(--muted); border-radius: 8px; display: grid; place-items: center; font-size: 13px; font-weight: 600; }
 .del svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -117,9 +104,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .field { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .field label { flex: 1 1 140px; color: var(--muted); font-size: 14px; }
 .field input { flex: 1 1 120px; min-width: 0; height: 44px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; background: var(--bg); color: var(--ink); font: inherit; font-variant-numeric: tabular-nums; }
-.btn { height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--ink); background: var(--ink); color: var(--bg); font-weight: 600; }
+.btn { height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .btn.danger { height: auto; min-height: 44px; padding: 10px 16px; background: transparent; color: var(--no); border-color: var(--no); text-align: left; }
-.btn.danger.ask { background: var(--no); color: var(--bg); }
+.btn.danger.ask { background: var(--no); border-color: var(--no); color: var(--accent-ink); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
 .note { margin: 0; font-size: 13px; color: var(--muted); min-height: 1em; }
@@ -128,16 +115,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .sync { margin-left: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .sync.off { color: var(--no); font-weight: 600; }
 .loading { margin: 24px 0; text-align: center; color: var(--muted); }
-.login { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: grid; place-items: center; padding: 16px; }
+.login { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: grid; place-items: center; padding: 16px; overflow-y: auto; }
 .login-card { width: min(100%, 360px); display: flex; flex-direction: column; gap: 12px; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
-.login-card h2 { margin: 0; font-family: var(--font-display); font-size: 26px; text-transform: uppercase; letter-spacing: .04em; }
+.login-card img { align-self: center; height: 150px; width: auto; }
+.login-card h2 { margin: 0; font-family: var(--font-display); font-size: 26px; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); }
 .login-card p { margin: 0; color: var(--muted); }
 .login-card input { height: 48px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; background: var(--bg); color: var(--ink); font: inherit; }
 .login-card .erro { color: var(--no); min-height: 1.2em; font-weight: 500; }
+.hero { display: flex; justify-content: center; padding-block: 16px 4px; }
+.hero img { height: 150px; width: auto; max-width: 100%; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 </style>
 </head>
 <body>
 <div class="app">
+  <div class="hero" id="hero"><img src="/escudo.png" width="109" height="150" alt="Escudo do Cabo Frio Handebol"></div>
   <header class="top">
     <div class="topbar">
       <button class="menu-btn" id="menuBtn" aria-label="Abrir menu" aria-controls="drawer" aria-expanded="false">
@@ -219,9 +211,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 <div class="login" id="login" hidden>
   <form id="loginForm" class="login-card" autocomplete="off">
+    <img src="/escudo.png" width="109" height="150" alt="Escudo do Cabo Frio Handebol">
     <h2>Código de acesso</h2>
     <p>Digite o código combinado com a organização para abrir o controle.</p>
-    <input id="codigo" type="password" autocomplete="off" inputmode="text" aria-label="Código de acesso">
+    <input id="codigo" type="password" autocomplete="off" aria-label="Código de acesso">
     <p class="erro" id="loginErro" role="alert"></p>
     <button class="btn" type="submit">Entrar</button>
   </form>
@@ -235,7 +228,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
   var S = null;                                   // estado (confirmado pelo servidor + alterações ainda não enviadas)
   var view = { gid: null, mes: null, filtro: "todos" };
   var fila = [], sending = false, online = true, montado = false, loading = false;
-  var nameTimer = null, retryTimer = null, askDel = null, askTimer = null, askGroup = null, askGroupTimer = null;
+  var revVista = 0;                               // maior versão dos dados já recebida do servidor
+  var pendNomes = {};                             // nomes digitados e ainda não enviados: atleta -> {gid, valor, t}
+  var retryTimer = null, askDel = null, askTimer = null, askGroup = null, askGroupTimer = null;
 
   
 const MES = /^\d{4}-\d{2}$/;
@@ -244,13 +239,14 @@ const texto = (v, n) => (typeof v === "string" ? v.slice(0, n) : "");
 function defaultState() {
   const atletas = [];
   for (let i = 1; i <= 3; i++) atletas.push({ id: "a" + i, nome: "" });
-  return { valor: 30, grupos: [{ id: "masculino", nome: "Masculino", atletas }], pag: {} };
+  return { rev: 0, valor: 30, grupos: [{ id: "masculino", nome: "Masculino", atletas }], pag: {} };
 }
 
 function normalize(d) {
   if (!d || typeof d !== "object" || !Array.isArray(d.grupos) || !d.grupos.length) return defaultState();
   if (!d.pag || typeof d.pag !== "object") d.pag = {};
   if (typeof d.valor !== "number" || !isFinite(d.valor)) d.valor = 30;
+  if (typeof d.rev !== "number") d.rev = 0;
   return d;
 }
 
@@ -362,7 +358,8 @@ function applyOp(S, op) {
     else { el.textContent = "Sincronizado"; el.className = "sync"; }
   }
   function aplicarServidor(estado) {
-    if (nameTimer) return;                        // há um nome sendo digitado; não pisar nele
+    if (temNomePendente()) return;                // há nome digitado e ainda não enviado; não pisar nele
+    if (typeof estado.rev === "number") { if (estado.rev < revVista) return; revVista = estado.rev; }   // resposta atrasada de uma consulta antiga
     var novo = normalize(estado);
     fila.forEach(function (op) { applyOp(novo, op); });
     S = novo; gravarCache();
@@ -400,6 +397,19 @@ function applyOp(S, op) {
       clearTimeout(retryTimer); retryTimer = setTimeout(enviar, 5000);
     });
   }
+  // Cada atleta tem o seu próprio envio de nome. Assim, trocar de campo antes do tempo
+  // não descarta o nome que ficou para trás.
+  function agendarNome(gid, aid, valor) {
+    var p = pendNomes[aid]; if (p) clearTimeout(p.t);
+    pendNomes[aid] = { gid: gid, valor: valor, t: setTimeout(function () { enviarNome(aid); }, 600) };
+  }
+  function enviarNome(aid) {
+    var p = pendNomes[aid]; if (!p) return;
+    clearTimeout(p.t); delete pendNomes[aid];
+    dispatch({ t: "nome", gid: p.gid, aid: aid, nome: p.valor });
+  }
+  function enviarNomesPendentes() { Object.keys(pendNomes).forEach(enviarNome); }
+  function temNomePendente() { return Object.keys(pendNomes).length > 0; }
   function dispatch(op) { applyOp(S, op); fila.push(op); gravarCache(); enviar(); }
 
   /* ---------- tela de código de acesso ---------- */
@@ -455,9 +465,9 @@ function applyOp(S, op) {
       var inp = document.createElement("input"); inp.className = "name"; inp.type = "text"; inp.value = a.nome || "";
       inp.placeholder = "Nome do atleta"; inp.setAttribute("aria-label", "Nome do atleta " + (i + 1)); inp.autocomplete = "off"; inp.maxLength = 60;
       inp.addEventListener("input", function () {
-        a.nome = inp.value; clearTimeout(nameTimer);
-        nameTimer = setTimeout(function () { nameTimer = null; dispatch({ t: "nome", gid: g.id, aid: a.id, nome: inp.value }); }, 600);
+        a.nome = inp.value; agendarNome(g.id, a.id, inp.value);
       });
+      inp.addEventListener("blur", function () { enviarNome(a.id); });
       var tg = document.createElement("div"); tg.className = "toggle";
       [["S", "Sim", "sim"], ["N", "Não", "nao"]].forEach(function (o) {
         var b = document.createElement("button"); b.className = "tg " + o[2]; b.textContent = o[1];
@@ -560,7 +570,7 @@ function applyOp(S, op) {
   }
   function setView(v) {
     $("view-controle").hidden = v !== "controle"; $("controleHead").hidden = v !== "controle";
-    $("view-ajustes").hidden = v !== "ajustes";
+    $("view-ajustes").hidden = v !== "ajustes"; $("hero").hidden = v !== "controle";
     $("viewTitle").textContent = TITULOS[v];
     document.querySelectorAll(".nav-item").forEach(function (b) {
       if (b.dataset.view === v) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
@@ -584,8 +594,9 @@ function applyOp(S, op) {
   if (cache) { S = normalize(cache); montar(); }
   setSync(); carregar();
 
-  setInterval(function () { if (!document.hidden && !sending && !fila.length && !nameTimer && !emEdicao()) carregar(); }, 10000);
-  document.addEventListener("visibilitychange", function () { if (!document.hidden && !sending && !fila.length && !nameTimer) carregar(); });
+  setInterval(function () { if (!document.hidden && !sending && !fila.length && !temNomePendente() && !emEdicao()) carregar(); }, 10000);
+  document.addEventListener("visibilitychange", function () { if (document.hidden) enviarNomesPendentes(); else if (!sending && !fila.length && !temNomePendente()) carregar(); });
+  window.addEventListener("pagehide", enviarNomesPendentes);
   window.addEventListener("online", function () { if (fila.length) enviar(); else carregar(); });
 
   if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js").catch(function () {}); }

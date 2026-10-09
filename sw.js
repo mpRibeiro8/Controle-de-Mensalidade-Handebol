@@ -1,5 +1,5 @@
 // Guarda a página para abrir mesmo sem sinal. Os dados (/api) nunca ficam no cache.
-const CACHE = "mensalidades-casca-v1";
+const CACHE = "mensalidades-casca-v2";
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
